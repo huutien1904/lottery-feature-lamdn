@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Quay trúng thưởng</title>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="img/favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="img/favicon-16x16.png"
+    />
+    <!-- <link rel="stylesheet" href="./index.css"> -->
+  </head>
+
+  <body>
+    <script src="./lib/three.min.js"></script>
+    <script src="./lib/tween.min.js"></script>
+    <script src="./lib/TrackballControls.js"></script>
+    <script src="./lib/CSS3DRenderer.js"></script>
+    <script src="./lib/ajax.js"></script>
+    <div id="result1" class="show"></div>
+    <div
+      id="main"
+      style="
+        background-image: url('img/background.jpg');
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+        background-size: cover;
+      "
+    >
+      <div class="canvas-box">
+        <canvas id="canvas">canvas</canvas>
+      </div>
+
+      <div class="music" style="display: flex">
+        <audio id="music" src="./data/xskt.mp3" class="music-item" loop></audio>
+        <div
+          id="musicBox"
+          style="margin-top: 20px"
+          class="music-box"
+          title="Dừng/Phát"
+        >
+          Music
+        </div>
+      </div>
+
+      <div class="logoITC" style="display: flex">
+        <img width="150px" src="img/logo-10.svg" />
+      </div>
+
+      <div
+        id="headTitle"
+        style="
+          font-size: 5vh;
+          font-weight: bold;
+          color: #ff4757;
+          padding: 70px 0px 0px 0px;
+          display: flex;
+          justify-content: center;
+        "
+      >
+        QUAY SỐ MAY MẮN
+      </div>
+      <div id="container"></div>
+
+      <div id="prizeBar"></div>
+
+      <div id="menu">
+        <button id="enter">Sẵn sàng</button>
+        <!-- <div class="ready-icon">
+          <img src="img/logo-10.svg" alt="logo" id="enter" />
+        </div> -->
+        <div id="lotteryBar" class="none">
+          <button id="lottery">Quay</button>
+          <!--        <button id="reLottery">Quay lại</button>-->
+          <button id="save">Lưu lịch sử</button>
+          <button id="reset" class="margin-l-40">Đặt lại</button>
+          <!--            <button id="showUser">Hiển thị số người còn lại</button>-->
+          <!--        <button id="back">Trả lại</button>-->
+          <!--        <img src="img/LogoMbf.png" sizes="16x16">-->
+        </div>
+      </div>
+
+      <!--<img src="img/LogoMbf.png" sizes="16x16">-->
+      <!-- <span
+        style="
+          position: absolute;
+          left: 0;
+          bottom: 0vh;
+          font-size: 2vh;
+          font-weight: bold;
+          color: white;
+          vertical-align: middle;
+          padding: 0 6px;
+        "
+        >© 2024. Phòng PTPM1
+        <img style="width: 3vh" src="img/logo_PMNB_nho.svg"
+      /></span> -->
+
+      <div class="qipao-container"></div>
+    </div>
+  </body>
+</html>

@@ -152,7 +152,8 @@ button:active {
 }
 
 .highlight {
-  background-color: #ff4757 !important;
+  /* background-color: #ff4757 !important; */
+  background-color: #efeef5 !important;
   box-shadow: 0 0 12px rgba(253, 105, 0, 0.95);
   border: 1px solid rgba(253, 105, 0, 0.25);
 }

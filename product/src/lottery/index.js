@@ -718,6 +718,7 @@ function resetCard(duration = 500) {
 }
 
 function lottery() {
+  //kiểm tra loại thưởng giải
   if (currentPrize.type === 0) return;
   rotateBall().then(() => {
     // Bỏ trống bản ghi trước
@@ -725,13 +726,19 @@ function lottery() {
     selectedCardIndex = [];
     console.log({EACH_COUNT});
     console.log({currentPrizeIndex});
+    console.log({basicData});
     
     // Số lần quay thưởng đồng thời hiện tại, có thể tiếp tục quay thưởng sau lần quay thưởng hiện tại, nhưng không có dữ liệu nào được ghi lại
+    // perCount : mảng số giải thưởng trên mỗi lần quay
+    // 
     let perCount = EACH_COUNT[currentPrizeIndex],
       luckyData = basicData.luckyUsers[currentPrize.type],
       leftCount = basicData.leftUsers.length,
       leftPrizeCount = currentPrize.count - (luckyData ? luckyData.length : 0);
     console.log({perCount});
+    console.log({luckyData});
+    console.log({leftPrizeCount});
+    console.log({leftCount});
     
     if (leftCount === 0) {
       // addQipao("Các nhân viên đã được rút, và bây giờ tất cả các nhân viên có thể được đặt lại cho lần rút thứ hai!");
@@ -742,7 +749,7 @@ function lottery() {
     for (let i = 0; i < perCount; i++) {
       //random id trong danh sách còn lại
       let luckyId;
-      if (currentPrize.type < 5) {
+      if (currentPrize.type < 8) {
         const excluding = findLessPrize(basicData.leftUsers, currentPrize.type);
         console.log("excluding");
         console.log(excluding);

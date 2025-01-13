@@ -1,13 +1,7 @@
 import "./index.css";
 import "../css/animate.min.css";
 import "./canvas.js";
-import {
-  addQipao,
-  setPrizes,
-  showPrizeList,
-  setPrizeData,
-  resetPrize,
-} from "./prizeList";
+import { addQipao, setPrizes, showPrizeList, setPrizeData, resetPrize } from "./prizeList";
 import { NUMBER_MATRIX } from "./config.js";
 //Thoi gian xoay bong
 const ROTATE_TIME = 4000;
@@ -61,17 +55,15 @@ function initAll() {
   window.AJAX({
     url: "/getTempData",
     success(data) {
-      console.log({data});
-      
       // Nhận dữ liệu cơ bản
       prizes = data.cfgData.prizes;
-      console.log({prizes});
-      
+
       EACH_COUNT = data.cfgData.EACH_COUNT;
       COMPANY = data.cfgData.COMPANY;
       HIGHLIGHT_CELL = createHighlight();
       basicData.prizes = prizes;
-      setPrizes(prizes);500
+      setPrizes(prizes);
+      500;
 
       TOTAL_CARDS = ROW_COUNT * COLUMN_COUNT;
 
@@ -81,11 +73,7 @@ function initAll() {
 
       let prizeIndex = basicData.prizes.length - 1;
       for (; prizeIndex > -1; prizeIndex--) {
-        if (
-          data.luckyData[prizeIndex] &&
-          data.luckyData[prizeIndex].length >=
-            basicData.prizes[prizeIndex].count
-        ) {
+        if (data.luckyData[prizeIndex] && data.luckyData[prizeIndex].length >= basicData.prizes[prizeIndex].count) {
           continue;
         }
         currentPrizeIndex = prizeIndex;
@@ -125,12 +113,7 @@ function initCards() {
       y: (220 * ROW_COUNT - 20) / 2,
     };
 
-  camera = new THREE.PerspectiveCamera(
-    50,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-  );
+  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.position.z = 3000;
 
   scene = new THREE.Scene();
@@ -138,12 +121,7 @@ function initCards() {
   for (let i = 0; i < ROW_COUNT; i++) {
     for (let j = 0; j < COLUMN_COUNT; j++) {
       isBold = HIGHLIGHT_CELL.includes(j + "-" + i);
-      var element = createCard(
-        member[index % length],
-        isBold,
-        index,
-        showTable
-      );
+      var element = createCard(member[index % length], isBold, index, showTable);
       var object = new THREE.CSS3DObject(element);
       object.position.x = Math.random() * 4000 - 2000;
       object.position.y = Math.random() * 4000 - 2000;
@@ -223,9 +201,7 @@ function bindEvent() {
         document.querySelector("#prizeBar").style.display = "block";
         document.querySelector("#headTitle").style.display = "none";
         removeHighlight();
-        document
-          .querySelectorAll(".none")
-          .forEach((node) => node.classList.remove("none"));
+        document.querySelectorAll(".none").forEach((node) => node.classList.remove("none"));
         // addQipao(`Bắt đầu với hạng mục ${currentPrize.text},Đừng rời đi.`);
         // rotate = !rotate;
         rotate = true;
@@ -243,9 +219,7 @@ function bindEvent() {
         document.querySelector("#headTitle").style.display = "flex";
         addQipao("Khởi động lại");
         addHighlight();
-        document
-          .querySelectorAll(".normal")
-          .forEach((node) => node.classList.add("none"));
+        document.querySelectorAll(".normal").forEach((node) => node.classList.add("none"));
         resetCard();
         // Đặt lại tất cả dữ liệu
         currentLuckys = [];
@@ -340,11 +314,7 @@ function createCard(user, isBold, id, showTable) {
       return false;
     }
     const index = selectedCardIndex.findIndex((item) => item === id);
-    let doREset = window.confirm(
-      "Bạn có chắc chắn muốn loại người chơi " +
-        currentLuckys[index][1] +
-        " không?"
-    );
+    let doREset = window.confirm("Bạn có chắc chắn muốn loại người chơi " + currentLuckys[index][1] + " không?");
     if (!doREset) {
       return;
     }
@@ -364,8 +334,7 @@ function createCard(user, isBold, id, showTable) {
     }
   } else {
     element.className = "element none normal";
-    element.style.backgroundColor =
-      "rgba(0,127,127," + (Math.random() * 0.7 + 0.25) + ")";
+    element.style.backgroundColor = "rgba(0,127,127," + (Math.random() * 0.7 + 0.25) + ")";
   }
   element.appendChild(createElement("company", COMPANY));
 
@@ -592,7 +561,6 @@ function showCard(idx, locates, duration, tag) {
       )
       .easing(TWEEN.Easing.Exponential.InOut)
       .start();
-    console.log(object);
     object.element.classList.add("prize");
     // object.element.append('<img id="theImg" src="img/highlight_background_remove.jpg" />')
     object.element.innerHTML += `
@@ -700,13 +668,10 @@ function resetCard(duration = 500) {
       .onUpdate(render)
       .start()
       .onComplete(() => {
-        console.log(selectedCard);
-        console.log(currentLuckys);
         selectedCardIndex.forEach((index) => {
           let object = threeDCards[index];
           object.element.classList.remove("prize");
           const value = selectedCard.findIndex((item) => item.id === index);
-          console.log(value);
           object.element.innerHTML = `
             <div class="dev-img" style="background: url('${selectedCard[value].info[3]}') no-repeat top center;
             background-size: cover;"></div>
@@ -724,22 +689,15 @@ function lottery() {
     // Bỏ trống bản ghi trước
     currentLuckys = [];
     selectedCardIndex = [];
-    console.log({EACH_COUNT});
-    console.log({currentPrizeIndex});
-    console.log({basicData});
-    
+
     // Số lần quay thưởng đồng thời hiện tại, có thể tiếp tục quay thưởng sau lần quay thưởng hiện tại, nhưng không có dữ liệu nào được ghi lại
     // perCount : mảng số giải thưởng trên mỗi lần quay
-    // 
+    //
     let perCount = EACH_COUNT[currentPrizeIndex],
       luckyData = basicData.luckyUsers[currentPrize.type],
       leftCount = basicData.leftUsers.length,
       leftPrizeCount = currentPrize.count - (luckyData ? luckyData.length : 0);
-    console.log({perCount});
-    console.log({luckyData});
-    console.log({leftPrizeCount});
-    console.log({leftCount});
-    
+
     if (leftCount === 0) {
       // addQipao("Các nhân viên đã được rút, và bây giờ tất cả các nhân viên có thể được đặt lại cho lần rút thứ hai!");
       basicData.leftUsers = basicData.users;
@@ -759,7 +717,6 @@ function lottery() {
         luckyId = random(leftCount);
       }
       console.log("basicData.leftUsers");
-      console.log(basicData.leftUsers);
       currentLuckys.push(basicData.leftUsers.splice(luckyId, 1)[0]);
       leftCount--;
       leftPrizeCount--;
@@ -873,8 +830,7 @@ function changeCard(cardIndex, user) {
  */
 function shine(cardIndex, color) {
   let card = threeDCards[cardIndex].element;
-  card.style.backgroundColor =
-    color || "rgba(0,127,127," + (Math.random() * 0.7 + 0.25) + ")";
+  card.style.backgroundColor = color || "rgba(0,127,127," + (Math.random() * 0.7 + 0.25) + ")";
 }
 
 /**
@@ -979,7 +935,6 @@ function createHighlight() {
 
   return highlight;
 }
-
 
 let onload = window.onload;
 

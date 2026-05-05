@@ -289,7 +289,8 @@ button:active {
 }
 
 .progress-bar.active {
-  animation: reverse progress-bar-stripes 0.4s linear infinite,
+  animation:
+    reverse progress-bar-stripes 0.4s linear infinite,
     animate-positive 2s;
 }
 

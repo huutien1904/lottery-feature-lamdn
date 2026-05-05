@@ -210,7 +210,7 @@ function bindEvent() {
       // Đặt lại
       case "reset":
         let doREset = window.confirm(
-          "Xác nhận đặt lại dữ liệu. Sau khi đặt lại, tất cả các giải thưởng đã quay sẽ bị xóa."
+          "Xác nhận đặt lại dữ liệu. Sau khi đặt lại, tất cả các giải thưởng đã quay sẽ bị xóa.",
         );
         if (!doREset) {
           return;
@@ -372,7 +372,7 @@ function transform(targets, duration) {
           y: target.position.y,
           z: target.position.z,
         },
-        Math.random() * duration + duration
+        Math.random() * duration + duration,
       )
       .easing(TWEEN.Easing.Exponential.InOut)
       .start();
@@ -384,7 +384,7 @@ function transform(targets, duration) {
           y: target.rotation.y,
           z: target.rotation.z,
         },
-        Math.random() * duration + duration
+        Math.random() * duration + duration,
       )
       .easing(TWEEN.Easing.Exponential.InOut)
       .start();
@@ -413,7 +413,7 @@ function rotateBall() {
         {
           y: Math.PI * 80,
         },
-        calcDuration(currentPrizeIndex)
+        calcDuration(currentPrizeIndex),
       )
       .onUpdate(render)
       .easing(TWEEN.Easing.Exponential.InOut)
@@ -447,7 +447,8 @@ function render() {
 
 function selectCard(duration) {
   rotate = false;
-  let width = 150,
+  // Khoảng cách ngang giữa tâm các thẻ trúng (3D). Tăng nếu thẻ bị sát nhau.
+  let width = 200,
     tag = -(currentLuckys.length - 1) / 2,
     locates = [];
 
@@ -545,7 +546,7 @@ function showCard(idx, locates, duration, tag) {
           y: locates[idx].y * Resolution,
           z: 2200,
         },
-        Math.random() * duration + duration
+        Math.random() * duration + duration,
       )
       .easing(TWEEN.Easing.Exponential.InOut)
       .start();
@@ -557,7 +558,7 @@ function showCard(idx, locates, duration, tag) {
           y: 0,
           z: 0,
         },
-        Math.random() * duration + duration
+        Math.random() * duration + duration,
       )
       .easing(TWEEN.Easing.Exponential.InOut)
       .start();
@@ -598,7 +599,7 @@ function backCardToBall(index, duration) {
         y: target.position.y,
         z: target.position.z,
       },
-      Math.random() * duration + duration
+      Math.random() * duration + duration,
     )
     .easing(TWEEN.Easing.Exponential.InOut)
     .start();
@@ -610,7 +611,7 @@ function backCardToBall(index, duration) {
         y: target.rotation.y,
         z: target.rotation.z,
       },
-      Math.random() * duration + duration
+      Math.random() * duration + duration,
     )
     .easing(TWEEN.Easing.Exponential.InOut)
     .start();
@@ -643,7 +644,7 @@ function resetCard(duration = 500) {
           y: target.position.y,
           z: target.position.z,
         },
-        Math.random() * duration + duration
+        Math.random() * duration + duration,
       )
       .easing(TWEEN.Easing.Exponential.InOut)
       .start();
@@ -655,7 +656,7 @@ function resetCard(duration = 500) {
           y: target.rotation.y,
           z: target.rotation.z,
         },
-        Math.random() * duration + duration
+        Math.random() * duration + duration,
       )
       .easing(TWEEN.Easing.Exponential.InOut)
       .start();
@@ -912,25 +913,23 @@ function reset() {
 }
 
 function createHighlight() {
-  let year = "0123";
+  // Một ký tự = một index trong NUMBER_MATRIX (V=0, N=1, S=2, K=3, Y=4)
+  let letterIndices = "01234";
   let step = 6;
   let yoffset = 0;
   let highlight = [];
 
-  // Tính tổng chiều rộng dãy chữ
-  let totalWidth = year.length * step; // mỗi chữ cách nhau 6 đơn vị
+  let totalWidth = letterIndices.length * step;
+  let screenWidth = COLUMN_COUNT;
+  let xoffset = Math.floor((screenWidth - totalWidth) / 2);
 
-  // Tính toán xoffset sao cho chữ được căn giữa
-  let screenWidth = 32; // Độ rộng của màn hình (có thể thay đổi)
-  let xoffset = Math.floor((screenWidth - totalWidth) / 2); // Tính xoffset để căn giữa
-
-  year.split("").forEach((n) => {
+  letterIndices.split("").forEach((n) => {
     highlight = highlight.concat(
       NUMBER_MATRIX[n].map((item) => {
         return `${item[0] + xoffset}-${item[1] + yoffset}`;
-      })
+      }),
     );
-    xoffset += step; // Di chuyển xoffset cho chữ tiếp theo
+    xoffset += step;
   });
 
   return highlight;
@@ -970,14 +969,14 @@ window.onload = function () {
           },
           () => {
             // addQipao("Nhạc đã bật！");
-          }
+          },
         );
       } else {
         music.pause();
         stopAnimate = true;
       }
     },
-    false
+    false,
   );
 
   setTimeout(function () {

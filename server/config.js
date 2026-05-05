@@ -59,7 +59,7 @@ const prizes = [
 /**
  * 一Số giải mỗi lần quay
  */
-const EACH_COUNT = [1, 1, 1, 2, 5, 10, 10, 10];
+const EACH_COUNT = [1, 1, 1, 5, 5, 10, 10, 10];
 
 const COMPANY = "VNSKY";
 

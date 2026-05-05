@@ -22,6 +22,7 @@ a {
   z-index: 3;
   position: relative;
   margin: 0 15vh;
+  transform: translateX(-70px);
 }
 
 #menu {

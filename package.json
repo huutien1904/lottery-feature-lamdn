@@ -1,0 +1,30 @@
+{
+  "name": "lottery-saas-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace apps/web",
+    "dev:api": "npm run start:dev --workspace apps/api",
+    "build:web": "npm run build --workspace apps/web",
+    "build:api": "npm run build --workspace apps/api",
+    "lint:web": "npm run lint --workspace apps/web",
+    "lint:api": "npm run lint --workspace apps/api",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "apps/web/**/*.{js,jsx,ts,tsx,mjs,cjs}": [
+      "npm run lint:web"
+    ],
+    "apps/api/**/*.{js,ts,mjs,cjs}": [
+      "npm run lint:api"
+    ]
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0"
+  }
+}

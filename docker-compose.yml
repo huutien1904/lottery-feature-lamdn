@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lottery_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lottery
+      POSTGRES_PASSWORD: lottery
+      POSTGRES_DB: lottery_saas
+    ports:
+      - "55432:5432"
+    volumes:
+      - lottery_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lottery -d lottery_saas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  lottery_postgres_data:

@@ -1,0 +1,362 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+enum PlatformRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum TenantRole {
+  OWNER
+  ADMIN
+  OPERATOR
+  VIEWER
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+  ONE_TIME
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  CANCELED
+}
+
+enum PaymentProvider {
+  MANUAL
+  STRIPE
+  VNPAY
+  MOMO
+}
+
+enum EventStatus {
+  DRAFT
+  READY
+  LIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum DrawSessionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  CANCELED
+}
+
+enum UploadProvider {
+  R2
+  S3
+  DIGITALOCEAN_SPACES
+}
+
+enum UploadPurpose {
+  TENANT_BRANDING
+  PARTICIPANT_AVATAR
+  EVENT_BANNER
+  IMPORT_FILE
+}
+
+model User {
+  id                    String       @id @default(cuid())
+  email                 String       @unique
+  passwordHash          String
+  refreshTokenHash      String?
+  refreshTokenExpiresAt DateTime?
+  fullName              String
+  avatarUrl             String?
+  status                UserStatus   @default(ACTIVE)
+  platformRole          PlatformRole @default(USER)
+  emailVerifiedAt       DateTime?
+  lastLoginAt           DateTime?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  memberships   TenantMembership[]
+  createdEvents Event[]            @relation("EventCreatedBy")
+  createdDraws  DrawSession[]      @relation("DrawSessionCreatedBy")
+  auditLogs     AuditLog[]         @relation("AuditActor")
+}
+
+model Tenant {
+  id                 String       @id @default(cuid())
+  slug               String       @unique
+  name               String
+  status             TenantStatus @default(ACTIVE)
+  timezone           String       @default("Asia/Ho_Chi_Minh")
+  locale             String       @default("vi")
+  logoUrl            String?
+  defaultAvatarUrl   String?
+  participantHardCap Int          @default(20000)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  memberships   TenantMembership[]
+  subscriptions Subscription[]
+  events        Event[]
+  participants  Participant[]
+  payments      Payment[]
+  uploads       Upload[]
+  auditLogs     AuditLog[]
+}
+
+model TenantMembership {
+  id        String     @id @default(cuid())
+  tenantId  String
+  userId    String
+  role      TenantRole
+  isDefault Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+}
+
+model Plan {
+  id           String       @id @default(cuid())
+  code         String       @unique // trial, pro, business
+  name         String
+  description  String?
+  billingCycle BillingCycle
+  priceAmount  Decimal      @default(0) @db.Decimal(12, 2)
+  currency     String       @default("VND")
+  isActive     Boolean      @default(true)
+
+  // Feature flags
+  trialDays               Int? // trial = 14
+  maxParticipantsPerEvent Int? // trial = 15
+  allowParticipantAvatar  Boolean @default(false)
+  allowLargeImport        Boolean @default(false)
+  maxImportRows           Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id       String             @id @default(cuid())
+  tenantId String
+  planId   String
+  status   SubscriptionStatus @default(TRIALING)
+
+  trialStartAt       DateTime?
+  trialEndAt         DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  canceledAt         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan     Plan      @relation(fields: [planId], references: [id], onDelete: Restrict)
+  payments Payment[]
+
+  @@index([tenantId, status])
+  @@index([trialEndAt])
+}
+
+model Payment {
+  id             String  @id @default(cuid())
+  tenantId       String
+  subscriptionId String?
+
+  provider          PaymentProvider
+  providerPaymentId String?
+  status            PaymentStatus   @default(PENDING)
+
+  amount   Decimal   @db.Decimal(12, 2)
+  currency String    @default("VND")
+  paidAt   DateTime?
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, providerPaymentId])
+  @@index([tenantId, createdAt])
+  @@index([subscriptionId])
+}
+
+model Event {
+  id          String      @id @default(cuid())
+  tenantId    String
+  createdById String?
+  name        String
+  code        String?
+  status      EventStatus @default(DRAFT)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  settings    Json?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy    User?         @relation("EventCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  participants Participant[]
+  prizes       Prize[]
+  drawSessions DrawSession[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status, createdAt])
+}
+
+model Participant {
+  id              String   @id @default(cuid())
+  tenantId        String
+  eventId         String
+  participantCode String
+  fullName        String
+  department      String?
+  email           String?
+  avatarUrl       String?
+  avatarKey       String?
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  event       Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  drawResults DrawResult[]
+
+  @@unique([tenantId, eventId, participantCode])
+  @@index([tenantId, eventId, createdAt])
+}
+
+model Prize {
+  id        String   @id @default(cuid())
+  tenantId  String
+  eventId   String
+  code      String
+  name      String
+  quantity  Int
+  imageUrl  String?
+  sortOrder Int      @default(0)
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event       Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  drawResults DrawResult[]
+
+  @@unique([eventId, code])
+  @@index([tenantId, eventId, sortOrder])
+}
+
+model DrawSession {
+  id          String            @id @default(cuid())
+  tenantId    String
+  eventId     String
+  createdById String?
+  status      DrawSessionStatus @default(PENDING)
+  startedAt   DateTime?
+  endedAt     DateTime?
+  notes       String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  event     Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdBy User?        @relation("DrawSessionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  results   DrawResult[]
+
+  @@index([tenantId, eventId, createdAt])
+}
+
+model DrawResult {
+  id            String   @id @default(cuid())
+  tenantId      String
+  eventId       String
+  drawSessionId String
+  participantId String
+  prizeId       String
+  rankNo        Int?
+  createdAt     DateTime @default(now())
+
+  drawSession DrawSession @relation(fields: [drawSessionId], references: [id], onDelete: Cascade)
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Restrict)
+  prize       Prize       @relation(fields: [prizeId], references: [id], onDelete: Restrict)
+
+  @@unique([drawSessionId, participantId, prizeId])
+  @@index([tenantId, eventId, createdAt])
+  @@index([drawSessionId])
+}
+
+model Upload {
+  id               String         @id @default(cuid())
+  tenantId         String
+  eventId          String?
+  participantId    String?
+  provider         UploadProvider
+  purpose          UploadPurpose
+  key              String
+  url              String
+  mimeType         String
+  sizeBytes        Int
+  uploadedByUserId String?
+  createdAt        DateTime       @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, key])
+  @@index([tenantId, purpose, createdAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  actorUserId String?
+  action      String
+  entityType  String
+  entityId    String?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  actor  User?   @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([entityType, entityId])
+}

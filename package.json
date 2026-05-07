@@ -16,11 +16,17 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "apps/web/**/*.{js,jsx,ts,tsx,mjs,cjs}": [
-      "npm run lint:web"
+    "apps/web/**/*.{js,jsx,ts,tsx}": [
+      "npm run lint --workspace apps/web --"
     ],
-    "apps/api/**/*.{js,ts,mjs,cjs}": [
-      "npm run lint:api"
+    "apps/api/src/**/*.ts": [
+      "npm run lint --workspace apps/api --"
+    ],
+    "apps/api/test/**/*.ts": [
+      "npm run lint --workspace apps/api --"
+    ],
+    "apps/api/prisma.config.ts": [
+      "npm run lint --workspace apps/api --"
     ]
   },
   "devDependencies": {

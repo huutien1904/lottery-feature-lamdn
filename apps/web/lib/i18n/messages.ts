@@ -85,6 +85,33 @@ type RegisterMessages = {
   legalDisclaimer: string;
 };
 
+type WheelLabMessages = {
+  title: string;
+  subtitle: string;
+  helper: string;
+  modeTable: string;
+  modeSphere: string;
+  spin: string;
+  spinning: string;
+  redraw: string;
+  reset: string;
+  participantsLabel: string;
+  prizesLabel: string;
+  sourceApi: string;
+  sourceMock: string;
+  winnerLabel: string;
+  noWinner: string;
+  currentPrizeLabel: string;
+  remainingLabel: string;
+  sessionIdle: string;
+  sessionRunning: string;
+  sessionCompleted: string;
+  allPrizesDone: string;
+  webglUnsupportedTitle: string;
+  webglUnsupportedDescription: string;
+  fallbackAction: string;
+};
+
 type AppMessages = {
   header: {
     brand: string;
@@ -105,6 +132,7 @@ type AppMessages = {
   };
   login: LoginMessages;
   register: RegisterMessages;
+  wheelLab: WheelLabMessages;
   home: HomeMessages;
 };
 
@@ -166,14 +194,41 @@ const messages: Record<AppLocale, AppMessages> = {
       legalDisclaimer:
         "Khi đăng ký, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của chúng tôi. Chúng tôi bảo vệ dữ liệu của bạn như của chính mình.",
     },
+    wheelLab: {
+      title: "Wheel 3D Lab",
+      subtitle: "Nền scene 3D đầu tiên cho vòng quay mới trên Next.js.",
+      helper: "Mục tiêu Task 2: scene rỗng + camera + lights + orbit controls.",
+      modeTable: "Chế độ bảng",
+      modeSphere: "Chế độ cầu",
+      spin: "Bắt đầu quay",
+      spinning: "Đang quay...",
+      redraw: "Quay lại",
+      reset: "Đặt lại",
+      participantsLabel: "Người chơi",
+      prizesLabel: "Giải thưởng",
+      sourceApi: "Nguồn API",
+      sourceMock: "Nguồn Mock",
+      winnerLabel: "Người trúng",
+      noWinner: "Chưa có",
+      currentPrizeLabel: "Giải hiện tại",
+      remainingLabel: "Còn lại",
+      sessionIdle: "Sẵn sàng",
+      sessionRunning: "Đang quay",
+      sessionCompleted: "Hoàn tất",
+      allPrizesDone: "Đã hoàn thành tất cả giải thưởng",
+      webglUnsupportedTitle: "Thiết bị chưa hỗ trợ WebGL ổn định",
+      webglUnsupportedDescription:
+        "Trình duyệt hoặc GPU hiện tại không phù hợp để chạy vòng quay 3D. Vui lòng thử lại bằng Chrome/Edge mới nhất hoặc thiết bị mạnh hơn.",
+      fallbackAction: "Tải lại trang",
+    },
     home: {
       hero: {
         badge: "NỀN TẢNG GAMIFIED MARKETING",
-        titleStart: "Biến chiến dịch của bạn thành",
-        titleAccent: "trải nghiệm cuốn hút",
+        titleStart: "Biến sự kiện thành khoảnh khắc bùng nổ",
+        titleAccent: "",
         titleEnd: "",
         description:
-          "Tạo vòng quay, mini game và ưu đãi tương tác để tăng chuyển đổi cho chiến dịch marketing.",
+          "Thiết kế vòng quay 3D riêng cho doanh nghiệp, nổi bật trong mọi chiến dịch marketing và sự kiện.",
         primaryCta: "Dùng thử miễn phí",
         secondaryCta: "Đặt lịch demo",
         trustText: "Được tin dùng bởi hơn 3.000 doanh nghiệp.",
@@ -275,6 +330,33 @@ const messages: Record<AppLocale, AppMessages> = {
       loginHere: "Login here",
       legalDisclaimer:
         "By signing up, you agree to our Terms of Service and Privacy Policy. We'll protect your data like it's our own lucky charm.",
+    },
+    wheelLab: {
+      title: "Wheel 3D Lab",
+      subtitle: "First 3D scene baseline for the new wheel on Next.js.",
+      helper: "Task 2 target: empty scene + camera + lights + orbit controls.",
+      modeTable: "Table mode",
+      modeSphere: "Sphere mode",
+      spin: "Start spin",
+      spinning: "Spinning...",
+      redraw: "Redraw",
+      reset: "Reset",
+      participantsLabel: "Participants",
+      prizesLabel: "Prizes",
+      sourceApi: "API source",
+      sourceMock: "Mock source",
+      winnerLabel: "Winner",
+      noWinner: "None",
+      currentPrizeLabel: "Current prize",
+      remainingLabel: "Remaining",
+      sessionIdle: "Ready",
+      sessionRunning: "Running",
+      sessionCompleted: "Completed",
+      allPrizesDone: "All prizes completed",
+      webglUnsupportedTitle: "WebGL support is not available",
+      webglUnsupportedDescription:
+        "Your browser or GPU cannot run this 3D wheel reliably. Please try the latest Chrome/Edge or a more capable device.",
+      fallbackAction: "Reload page",
     },
     home: {
       hero: {

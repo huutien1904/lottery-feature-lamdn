@@ -4,7 +4,9 @@ type LegacyWheelEmbedProps = {
 };
 
 export function LegacyWheelEmbed({ title, description }: LegacyWheelEmbedProps) {
-  const legacyWheelUrl = process.env.NEXT_PUBLIC_LEGACY_WHEEL_URL;
+  const legacyWheelUrl =
+    process.env.NEXT_PUBLIC_LEGACY_WHEEL_URL ??
+    (process.env.NODE_ENV === "development" ? "http://localhost:9000" : undefined);
 
   if (legacyWheelUrl) {
     return (

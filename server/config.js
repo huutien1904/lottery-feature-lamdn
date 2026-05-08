@@ -6,29 +6,15 @@ const prizes = [
     text: "Giải đặc biệt",
   },
   {
-    type: 1,
-    count: 1,
-    title: "Giải đặc biệt",
-    text: "Giải đặc biệt",
-    img: "../img/1.png",
-  },
-  {
-    type: 2,
-    count: 1,
-    text: "Giải nhất",
-    title: "Giải nhất",
-    img: "../img/1.png",
-  },
-  {
     type: 3,
-    count: 5,
+    count: 4,
     text: "Giải nhì",
     title: "Giải nhì",
     img: "../img/2.png",
   },
   {
     type: 4,
-    count: 10,
+    count: 6,
     text: "Giải ba",
     title: "Giải ba",
     img: "../img/3.png",
@@ -59,7 +45,9 @@ const prizes = [
 /**
  * 一Số giải mỗi lần quay
  */
-const EACH_COUNT = [1, 1, 1, 5, 5, 10, 10, 10];
+// Mỗi lần quay sẽ bốc tối đa EACH_COUNT theo index của currentPrizeIndex.
+// Với danh sách hiện tại [default, giải nhì, giải ba], index tương ứng là [0,1,2].
+const EACH_COUNT = [1, 4, 6];
 
 const COMPANY = "VNSKY";
 

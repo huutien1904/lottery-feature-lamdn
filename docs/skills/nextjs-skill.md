@@ -18,6 +18,28 @@
 | **Framer Motion** | Animation màn hình, card, draw — bọc Client Component, tránh vô tội vạ ở RSC. |
 | **react-icons** | Icon ứng dụng (đa bộ). **lucide-react** vẫn là icon mặc định của nhiều block shadcn; dùng lẫn được. |
 
+## Brand & UI rules (bat buoc)
+
+- Font chu toan bo du an: **Be Vietnam Pro**.
+- Khong dung font khac cho body/button/form/table/card trừ khi co yeu cau dac biet tu product.
+- Bang mau thuong hieu lay theo board da chot:
+  - `primary`: `#2C2BA4`
+  - `secondary`: `#F7B120`
+  - `tertiary`: `#4A2F10`
+  - `muted`: `#777777`
+- Khong hardcode mau trong component; bat buoc dung token semantic (primary/secondary/accent/muted/destructive/border/background/foreground).
+- Uu tien contrast tot (text/background de doc), han che dung mau saturation cao cho doan text dai.
+
+## Quy uoc thiet ke token
+
+- Dinh nghia token mau/fallback trong `app/globals.css` de toan bo shadcn/ui dung chung.
+- Neu can them shade, tao theo cap do (`50-900`) va ghi ro y nghia (brand, surface, border, chart...), khong dat ten tuy y.
+- Icon trang thai:
+  - Success: nghiêng xanh la
+  - Warning: nghiêng vang/cam
+  - Error: nghiêng do
+  - Neutral: nghiêng muted/xam
+
 ## Cấu trúc thư mục đề xuất
 
 - Route App Router: **`apps/web/app`** (repo hiện không dùng `src/app`; giữ nguyên convention này).
@@ -38,6 +60,8 @@ Phân route nhóm (sau này):
 - Dùng **`"use client"`** cho: TanStack Query, RHF, Zustand, Motion, input có state cục bộ phức tạp.
 - **Gọi API backend**: chỉ qua `apiFetch()` trong `queryFn` / `mutationFn`, không `fetch` rải rác tới `NEXT_PUBLIC_API_URL`.
 - **Gọi API bên thứ ba** (CDN, public demo): có thể `fetch` trực tiếp trong query hoặc bọc helper riêng — không trộn với `apiFetch` nếu không cùng auth/CORS.
+- **Bắt buộc đa ngôn ngữ cho mọi màn hình**: text hiển thị UI phải đi qua hệ i18n (`vi`/`en`), không hardcode chuỗi trực tiếp trong component page/section mới.
+- Khi thêm màn hình hoặc component mới có text, phải thêm key tương ứng cho cả `vi` và `en` trước khi xem là hoàn thành.
 
 ```ts
 // Ví dụ pattern
@@ -85,3 +109,5 @@ useQuery({
 - Trang có loading / empty / error state khi dùng TanStack Query.
 - Form có hiển thị lỗi validation.
 - Không hardcode URL API — dùng env + `apiFetch`.
+- Tat ca UI moi ton trong he token chung, dung dung font **Be Vietnam Pro**, va khong tao mau ngoai palette da chot.
+- Tat ca man hinh moi va text moi deu co day du i18n `vi/en` (khong hardcode text).

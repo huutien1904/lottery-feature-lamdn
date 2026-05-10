@@ -8,6 +8,11 @@ import * as THREE from "three";
 import { Button } from "@/components/ui/button";
 
 import { useWheelData } from "./use-wheel-data";
+import {
+  createParticipantCardTexture,
+  createSkyGradientTexture,
+  disposeCardTextures,
+} from "@/lib/wheel3d/card-texture";
 import type { WheelParticipant } from "@/lib/wheel3d/types";
 
 type WheelCanvasProps = {
@@ -89,8 +94,8 @@ function detectWebGlReady() {
 function buildTableTargets(count: number) {
   const cols = 18;
   const rows = Math.ceil(count / cols);
-  const colGap = 0.34;
-  const rowGap = 0.42;
+  const colGap = 0.26;
+  const rowGap = 0.32;
   const xOffset = ((cols - 1) * colGap) / 2;
   const yOffset = ((rows - 1) * rowGap) / 2;
 
@@ -101,15 +106,28 @@ function buildTableTargets(count: number) {
   });
 }
 
-function buildSphereTargets(count: number) {
+/** Latitude / longitude grid on a sphere (reference-style “globe of cards”). */
+function buildSphereGridTargets(count: number, radius: number) {
+  // More columns → smaller Δθ; slightly narrower φ-band → rows sit closer on the shell.
+  const cols = Math.max(14, Math.round(Math.sqrt(count * 1.58)));
+  const rows = Math.ceil(count / cols);
+  const phiMin = 0.13 * Math.PI;
+  const phiMax = 0.87 * Math.PI;
+  const colDenom = Math.max(1, cols - 1);
+  const rowDenom = Math.max(1, rows - 1);
+
   return Array.from({ length: count }).map((_, i) => {
-    const phi = Math.acos(-1 + (2 * i) / count);
-    const theta = Math.sqrt(count * Math.PI) * phi;
-    const radius = 3.9;
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    const u = cols === 1 ? 0.5 : col / colDenom;
+    const v = rows === 1 ? 0.5 : row / rowDenom;
+    const phi = phiMin + (phiMax - phiMin) * v;
+    const theta = u * Math.PI * 2;
+    const sinPhi = Math.sin(phi);
     return new THREE.Vector3(
-      radius * Math.cos(theta) * Math.sin(phi),
+      radius * sinPhi * Math.cos(theta),
       radius * Math.cos(phi),
-      radius * Math.sin(theta) * Math.sin(phi),
+      radius * sinPhi * Math.sin(theta),
     );
   });
 }
@@ -127,52 +145,74 @@ function resolveSpinProfile(prize: { quantity: number } | undefined): SpinProfil
   return { durationMs: 4200, maxVelocity: 2.8 };
 }
 
+/** Smaller tiles + denser grid above = cards read as “tighter” on the sphere. */
+const CARD_PLANE_W = 0.27;
+const CARD_PLANE_H = 0.3375;
+
+/** Larger radius = bigger globe; camera distances tuned so it still fills the frame. */
+const SPHERE_RADIUS = 5.55;
+const WINNER_PULL_Z = SPHERE_RADIUS * 0.87;
+
 function CardsCloud({
-  count,
+  cards,
   mode,
   spinning,
   winnerIndex,
   maxSpinVelocity,
   phase,
 }: {
-  count: number;
+  cards: WheelParticipant[];
   mode: WheelMode;
   spinning: boolean;
   winnerIndex: number | null;
   maxSpinVelocity: number;
   phase: WheelMotionPhase;
 }) {
+  const count = cards.length;
   const { camera } = useThree();
   const cloudRef = useRef<THREE.Group>(null);
   const cardRefs = useRef<Array<THREE.Mesh | null>>([]);
   const spinVelocityRef = useRef(0);
-  const outwardLookAtTarget = useMemo(() => new THREE.Vector3(), []);
-  const revealCameraTarget = useMemo(() => new THREE.Vector3(0, 0, 6.7), []);
-  const spinCameraTarget = useMemo(() => new THREE.Vector3(0, 0.35, 7.9), []);
-  const idleCameraTarget = useMemo(() => new THREE.Vector3(0, 0, 8.5), []);
+  const zAxis = useMemo(() => new THREE.Vector3(0, 0, 1), []);
+  const revealCameraTarget = useMemo(() => new THREE.Vector3(0, 0, 8.35), []);
+  const spinCameraTarget = useMemo(() => new THREE.Vector3(0, 0.35, 9.72), []);
+  const idleCameraTarget = useMemo(() => new THREE.Vector3(0, 0, 10.5), []);
   const tableTargets = useMemo(() => buildTableTargets(count), [count]);
-  const sphereTargets = useMemo(() => buildSphereTargets(count), [count]);
+  const sphereTargets = useMemo(() => buildSphereGridTargets(count, SPHERE_RADIUS), [count]);
   const winnerTargets = useMemo(
-    () => sphereTargets.map((point, index) => (index === winnerIndex ? new THREE.Vector3(0, 0, 3.4) : point)),
+    () =>
+      sphereTargets.map((point, index) =>
+        index === winnerIndex ? new THREE.Vector3(0, 0, WINNER_PULL_Z) : point,
+      ),
     [sphereTargets, winnerIndex],
   );
-  const points = useMemo(
-    () => tableTargets.map((item) => item.clone().add(new THREE.Vector3(0, 0, 0))),
-    [tableTargets],
-  );
+  const points = useMemo(() => tableTargets.map((item) => item.clone()), [tableTargets]);
+
+  const textures = useMemo(() => {
+    return cards.map((participant, index) =>
+      createParticipantCardTexture(participant, winnerIndex === index),
+    );
+  }, [cards, winnerIndex]);
+
+  const skyTexture = useMemo(() => createSkyGradientTexture(), []);
+
+  useEffect(() => {
+    return () => {
+      disposeCardTextures(textures);
+      skyTexture.dispose();
+    };
+  }, [textures, skyTexture]);
 
   useFrame((_, delta) => {
     const speed = Math.min(1, delta * 2.15);
     const targets = mode === "sphere" && winnerIndex !== null ? winnerTargets : mode === "sphere" ? sphereTargets : tableTargets;
 
     if (spinning) {
-      // Spin-up easing similar to legacy wheel behavior.
       spinVelocityRef.current = Math.min(
         spinVelocityRef.current + delta * 1.05,
         maxSpinVelocity,
       );
     } else {
-      // Spin-down is intentionally slower to keep the reveal dramatic.
       spinVelocityRef.current = Math.max(spinVelocityRef.current - delta * 0.82, 0);
     }
 
@@ -189,9 +229,8 @@ function CardsCloud({
 
       mesh.position.copy(points[i]);
       if (mode === "sphere") {
-        // Match the legacy wheel: cards face outward from sphere center.
-        outwardLookAtTarget.copy(points[i]).multiplyScalar(2);
-        mesh.lookAt(outwardLookAtTarget);
+        const normal = points[i].clone().normalize();
+        mesh.quaternion.setFromUnitVectors(zAxis, normal);
       } else {
         mesh.rotation.set(0, 0, 0);
       }
@@ -209,52 +248,53 @@ function CardsCloud({
 
   return (
     <>
-      <color attach="background" args={["#051329"]} />
-      <fog attach="fog" args={["#051329", 8.5, 17]} />
-      <ambientLight intensity={0.78} />
-      <directionalLight position={[4, 5, 4]} intensity={0.95} />
-      <pointLight position={[-3, -2, -2]} intensity={0.3} />
-      <pointLight position={[0, 0, 2]} intensity={0.22} color="#f7b120" />
+      <color attach="background" args={["#8fd0ff"]} />
+      <fog attach="fog" args={["#b8e2ff", 14, 58]} />
+
+      <mesh renderOrder={-100}>
+        <sphereGeometry args={[140, 48, 48]} />
+        <meshBasicMaterial map={skyTexture} side={THREE.BackSide} depthWrite={false} />
+      </mesh>
+
+      <ambientLight intensity={1.05} />
+      <directionalLight position={[7, 11, 6]} intensity={1.12} color="#fffaf3" />
+      <directionalLight position={[-5, 4, -4]} intensity={0.42} color="#d8ecff" />
 
       <mesh>
-        <sphereGeometry args={[1.65, 36, 36]} />
-        <meshStandardMaterial color="#0f2950" transparent opacity={0.2} />
-      </mesh>
-      <mesh>
-        <torusGeometry args={[1.68, 0.03, 20, 72]} />
-        <meshStandardMaterial color="#f7b120" emissive="#f7b120" emissiveIntensity={0.12} />
+        <sphereGeometry args={[SPHERE_RADIUS * 0.37, 28, 28]} />
+        <meshStandardMaterial color="#5a9fd4" transparent opacity={0.07} depthWrite={false} />
       </mesh>
 
       <group ref={cloudRef}>
         {points.map((position, index) => (
           <mesh
-            key={index}
+            key={`${cards[index]?.id ?? index}-${index}`}
             position={position}
             ref={(node) => {
               cardRefs.current[index] = node;
             }}
           >
-            <boxGeometry args={[0.2, 0.26, 0.03]} />
+            <planeGeometry args={[CARD_PLANE_W, CARD_PLANE_H]} />
             <meshStandardMaterial
-              color={
-                winnerIndex === index ? "#ff8a1f" : index % 7 === 0 ? "#f7b120" : "#dfe7ff"
-              }
-              emissive={winnerIndex === index ? "#ff8a1f" : "#000000"}
-              emissiveIntensity={winnerIndex === index ? 0.55 : 0}
-              roughness={winnerIndex === index ? 0.2 : 0.35}
-              metalness={winnerIndex === index ? 0.6 : 0.2}
+              map={textures[index]}
+              transparent
+              opacity={0.96}
+              roughness={0.4}
+              metalness={0.06}
+              side={THREE.DoubleSide}
+              depthWrite={false}
             />
           </mesh>
         ))}
       </group>
 
-      <OrbitControls enablePan={false} maxDistance={11} minDistance={4} />
+      <OrbitControls enablePan={false} maxDistance={17} minDistance={6} />
     </>
   );
 }
 
 export function WheelCanvas({ className, messages }: WheelCanvasProps) {
-  const [mode, setMode] = useState<WheelMode>("table");
+  const [mode, setMode] = useState<WheelMode>("sphere");
   const [spinning, setSpinning] = useState(false);
   const [winnerIndex, setWinnerIndex] = useState<number | null>(null);
   const [currentPrizeIndex, setCurrentPrizeIndex] = useState(0);
@@ -270,6 +310,18 @@ export function WheelCanvas({ className, messages }: WheelCanvasProps) {
   const sourceText = data?.source === "api" ? messages.sourceApi : messages.sourceMock;
   const participants = useMemo(() => data?.participants ?? [], [data?.participants]);
   const prizes = useMemo(() => data?.prizes ?? [], [data?.prizes]);
+  const displayCards = useMemo(() => {
+    const slice = participants.slice(0, renderCardCount);
+    const out: WheelParticipant[] = [...slice];
+    while (out.length < renderCardCount) {
+      out.push({
+        id: `placeholder-${out.length}`,
+        name: "—",
+        code: "—",
+      });
+    }
+    return out;
+  }, [participants, renderCardCount]);
   const winner = winnerIndex !== null ? participants[winnerIndex] : null;
   const currentPrize = prizes[currentPrizeIndex];
   const spinProfile = useMemo(() => resolveSpinProfile(currentPrize), [currentPrize]);
@@ -395,7 +447,7 @@ export function WheelCanvas({ className, messages }: WheelCanvasProps) {
     setWinnersByPrize({});
     setLastDrawnPrizeId(null);
     setLastWinnerId(null);
-    setMode("table");
+    setMode("sphere");
   }
 
   return (
@@ -495,12 +547,12 @@ export function WheelCanvas({ className, messages }: WheelCanvasProps) {
         </div>
       ) : (
         <Canvas
-          camera={{ position: [0, 0, 8.5], fov: 45 }}
+          camera={{ position: [0, 0, 10.5], fov: 45 }}
           dpr={[1, 1.5]}
           gl={{ antialias: false, powerPreference: "high-performance" }}
         >
           <CardsCloud
-            count={renderCardCount}
+            cards={displayCards}
             mode={mode}
             spinning={spinning}
             winnerIndex={winnerIndex}

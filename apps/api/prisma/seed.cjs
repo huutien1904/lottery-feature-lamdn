@@ -85,12 +85,14 @@ async function seedDefaultTenant() {
       fullName: "System Admin",
       platformRole: PlatformRole.SUPER_ADMIN,
       passwordHash,
+      emailVerifiedAt: new Date(),
     },
     create: {
       email: ownerEmail,
       fullName: "System Admin",
       passwordHash,
       platformRole: PlatformRole.SUPER_ADMIN,
+      emailVerifiedAt: new Date(),
     },
   });
 

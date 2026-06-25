@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -11,13 +12,18 @@ import {
   TenantRole,
 } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { randomUUID } from 'crypto';
 import type { StringValue } from 'ms';
 import { ConfigService } from '@nestjs/config';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
+import type { GoogleOAuthUser } from './types/google-oauth-user';
+
+const VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 @Injectable()
 export class AuthService {
@@ -25,22 +31,36 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly mailService: MailService,
   ) {}
 
   async register(dto: RegisterDto) {
-    const exists = await this.prisma.user.findUnique({
+    const existing = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
-      select: { id: true },
+      select: { id: true, googleId: true, passwordHash: true },
     });
-    if (exists) {
-      throw new BadRequestException('Email already exists.');
+    if (existing) {
+      if (existing.googleId && !existing.passwordHash) {
+        throw new BadRequestException('GOOGLE_ACCOUNT_EXISTS');
+      }
+      throw new BadRequestException('EMAIL_ALREADY_EXISTS');
     }
 
+    const emailUsername = dto.email.split('@')[0];
+    const resolvedFullName =
+      dto.fullName?.trim() && dto.fullName.trim().length >= 2
+        ? dto.fullName.trim()
+        : emailUsername;
+    const tenantDisplayName = resolvedFullName;
+    const tenantSlug = this.makeTenantSlug(tenantDisplayName);
+
     const passwordHash = await argon2.hash(dto.password);
-    const tenantSlug = this.makeTenantSlug(dto.tenantName);
     const now = new Date();
     const trialEndAt = new Date(now);
     trialEndAt.setDate(trialEndAt.getDate() + 14);
+
+    const verificationToken = randomUUID();
+    const verificationExpiresAt = new Date(Date.now() + VERIFICATION_TTL_MS);
 
     const result = await this.prisma.$transaction(async (tx) => {
       const trialPlan = await tx.plan.findUnique({
@@ -54,7 +74,7 @@ export class AuthService {
 
       const tenant = await tx.tenant.create({
         data: {
-          name: dto.tenantName,
+          name: tenantDisplayName,
           slug: await this.uniqueSlug(tx, tenantSlug),
         },
       });
@@ -62,8 +82,10 @@ export class AuthService {
       const user = await tx.user.create({
         data: {
           email: dto.email.toLowerCase(),
-          fullName: dto.fullName,
+          fullName: resolvedFullName,
           passwordHash,
+          emailVerificationToken: verificationToken,
+          emailVerificationExpiresAt: verificationExpiresAt,
         },
       });
 
@@ -91,12 +113,239 @@ export class AuthService {
       return { user, tenant };
     });
 
-    return this.issueAuthResponse(
-      result.user.id,
-      result.user.email,
-      result.user.fullName,
-      result.user.platformRole,
+    await this.mailService.sendVerificationEmail({
+      to: result.user.email,
+      fullName: result.user.fullName,
+      token: verificationToken,
+      locale: dto.locale ?? 'vi',
+    });
+
+    return this.ok({ message: 'verification_sent', email: result.user.email });
+  }
+
+  async verifyEmail(token: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { emailVerificationToken: token },
+      select: {
+        id: true,
+        emailVerifiedAt: true,
+        emailVerificationExpiresAt: true,
+      },
+    });
+
+    if (!user || !user.emailVerificationExpiresAt) {
+      throw new BadRequestException('INVALID_TOKEN');
+    }
+
+    if (user.emailVerificationExpiresAt < new Date()) {
+      throw new BadRequestException('TOKEN_EXPIRED');
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerifiedAt: new Date(),
+        emailVerificationToken: null,
+        emailVerificationExpiresAt: null,
+      },
+    });
+
+    return this.ok({ verified: true });
+  }
+
+  async resendVerification(email: string, locale: 'vi' | 'en') {
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+      select: { id: true, fullName: true, emailVerifiedAt: true },
+    });
+
+    // Always return success to prevent email enumeration
+    if (!user || user.emailVerifiedAt) {
+      return this.ok({ sent: true });
+    }
+
+    const token = randomUUID();
+    const expiresAt = new Date(Date.now() + VERIFICATION_TTL_MS);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerificationToken: token,
+        emailVerificationExpiresAt: expiresAt,
+      },
+    });
+
+    await this.mailService.sendVerificationEmail({
+      to: email.toLowerCase(),
+      fullName: user.fullName,
+      token,
+      locale,
+    });
+
+    return this.ok({ sent: true });
+  }
+
+  /**
+   * Find or create the user for a Google account, link Google to an existing email
+   * when safe, and provision the same trial tenant as email/password register.
+   */
+  async provisionGoogleUser(params: {
+    googleId: string;
+    email: string;
+    fullName: string;
+    avatarUrl: string | null;
+    emailVerifiedFromGoogle: boolean;
+  }): Promise<GoogleOAuthUser> {
+    const { googleId, email, fullName, avatarUrl, emailVerifiedFromGoogle } =
+      params;
+
+    const existingGoogle = await this.prisma.user.findUnique({
+      where: { googleId },
+      select: { id: true, email: true, fullName: true, platformRole: true },
+    });
+    if (existingGoogle) {
+      return { ...existingGoogle, isNew: false };
+    }
+
+    const existingEmail = await this.prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        platformRole: true,
+        googleId: true,
+        emailVerifiedAt: true,
+        avatarUrl: true,
+      },
+    });
+
+    if (existingEmail) {
+      if (
+        existingEmail.googleId != null &&
+        existingEmail.googleId !== googleId
+      ) {
+        throw new ConflictException(
+          'This email is already linked to a different Google account.',
+        );
+      }
+
+      if (!emailVerifiedFromGoogle) {
+        throw new UnauthorizedException(
+          'Your Google account email must be verified before it can be linked to an existing account.',
+        );
+      }
+
+      const emailVerifiedAt =
+        existingEmail.emailVerifiedAt ??
+        (emailVerifiedFromGoogle ? new Date() : undefined);
+
+      const mergedName =
+        existingEmail.fullName?.trim().length >= 2
+          ? existingEmail.fullName
+          : fullName;
+
+      const updated = await this.prisma.user.update({
+        where: { id: existingEmail.id },
+        data: {
+          googleId,
+          emailVerifiedAt,
+          // Clear any pending email verification since Google confirmed it
+          emailVerificationToken: null,
+          emailVerificationExpiresAt: null,
+          fullName: mergedName,
+          avatarUrl: existingEmail.avatarUrl ?? avatarUrl ?? undefined,
+        },
+        select: { id: true, email: true, fullName: true, platformRole: true },
+      });
+      return { ...updated, isNew: false };
+    }
+
+    const tenantSlug = this.makeTenantSlug(fullName);
+    const tenantDisplayName =
+      fullName.trim().length >= 2 ? fullName.trim() : email.split('@')[0];
+    const now = new Date();
+    const trialEndAt = new Date(now);
+    trialEndAt.setDate(trialEndAt.getDate() + 14);
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      const trialPlan = await tx.plan.findUnique({
+        where: { code: 'trial' },
+        select: { id: true },
+      });
+
+      if (!trialPlan) {
+        throw new BadRequestException('Trial plan is not configured.');
+      }
+
+      const tenant = await tx.tenant.create({
+        data: {
+          name: tenantDisplayName,
+          slug: await this.uniqueSlug(tx, tenantSlug),
+        },
+      });
+
+      const user = await tx.user.create({
+        data: {
+          email,
+          fullName,
+          googleId,
+          passwordHash: null,
+          avatarUrl: avatarUrl ?? undefined,
+          emailVerifiedAt: emailVerifiedFromGoogle ? new Date() : null,
+        },
+      });
+
+      await tx.tenantMembership.create({
+        data: {
+          tenantId: tenant.id,
+          userId: user.id,
+          role: TenantRole.OWNER,
+          isDefault: true,
+        },
+      });
+
+      await tx.subscription.create({
+        data: {
+          tenantId: tenant.id,
+          planId: trialPlan.id,
+          status: SubscriptionStatus.TRIALING,
+          trialStartAt: now,
+          trialEndAt,
+          currentPeriodStart: now,
+          currentPeriodEnd: trialEndAt,
+        },
+      });
+
+      return user;
+    });
+
+    const newUser = {
+      id: created.id,
+      email: created.email,
+      fullName: created.fullName,
+      platformRole: created.platformRole,
+      isNew: true,
+    };
+
+    // Send welcome email for new Google OAuth users (fire-and-forget)
+    void this.mailService.sendWelcomeEmail({
+      to: created.email,
+      fullName: created.fullName,
+      locale: 'vi',
+    });
+
+    return newUser;
+  }
+
+  async issueGoogleOAuthTokens(user: GoogleOAuthUser) {
+    const envelope = await this.issueAuthResponse(
+      user.id,
+      user.email,
+      user.fullName,
+      user.platformRole,
     );
+    return envelope.data;
   }
 
   async login(dto: LoginDto) {
@@ -108,6 +357,7 @@ export class AuthService {
         fullName: true,
         passwordHash: true,
         platformRole: true,
+        emailVerifiedAt: true,
       },
     });
 
@@ -115,9 +365,19 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password.');
     }
 
+    if (!user.passwordHash) {
+      throw new UnauthorizedException(
+        'This account uses Google sign-in. Please continue with Google.',
+      );
+    }
+
     const validPassword = await argon2.verify(user.passwordHash, dto.password);
     if (!validPassword) {
       throw new UnauthorizedException('Invalid email or password.');
+    }
+
+    if (!user.emailVerifiedAt) {
+      throw new UnauthorizedException('EMAIL_NOT_VERIFIED');
     }
 
     return this.issueAuthResponse(
@@ -180,6 +440,7 @@ export class AuthService {
         id: true,
         email: true,
         fullName: true,
+        avatarUrl: true,
         status: true,
         platformRole: true,
         memberships: {

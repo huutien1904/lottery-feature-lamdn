@@ -1,13 +1,29 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import session from 'express-session';
+
+import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 import { SuccessResponseInterceptor } from './common/interceptors/success-response.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  app.use(
+    session({
+      secret: process.env.SESSION_SECRET ?? 'lottery-dev-session-change-me',
+      resave: false,
+      saveUninitialized: true,
+      cookie: {
+        maxAge: 15 * 60 * 1000,
+        httpOnly: true,
+        sameSite: 'lax',
+      },
+    }),
+  );
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -39,6 +55,15 @@ async function bootstrap() {
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, swaggerDocument, {
     swaggerOptions: { persistAuthorization: true },
+  });
+
+  const webOrigin = process.env.WEB_APP_ORIGIN ?? 'http://localhost:3000';
+  app.enableCors({
+    origin: webOrigin
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean),
+    credentials: true,
   });
 
   await app.listen(process.env.PORT ?? 3000);

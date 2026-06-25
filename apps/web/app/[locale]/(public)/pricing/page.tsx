@@ -1,16 +1,13 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { HomeBottomCta } from "@/components/home/home-bottom-cta";
-import { HomeHero } from "@/components/home/home-hero";
-import { HomeHowItWorks } from "@/components/home/home-how-it-works";
-import { HomeSpinDemo } from "@/components/home/home-spin-demo";
-import { HomeWhyChoose } from "@/components/home/home-why-choose";
+import { PricingPageView } from "@/components/pricing/pricing-page-view";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { isAppLocale, locales } from "@/lib/i18n/config";
 import { getMessages } from "@/lib/i18n/messages";
 
-type LocalePageProps = {
+type PricingPageProps = {
   params: Promise<{ locale: string }>;
 };
 
@@ -18,7 +15,18 @@ export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
 }
 
-export default async function LocaleHomePage({ params }: LocalePageProps) {
+export async function generateMetadata({ params }: PricingPageProps): Promise<Metadata> {
+  const { locale } = await params;
+  if (!isAppLocale(locale)) {
+    return {};
+  }
+  const messages = getMessages(locale);
+  return {
+    title: messages.pricing.metaTitle,
+  };
+}
+
+export default async function PricingPage({ params }: PricingPageProps) {
   const { locale } = await params;
 
   if (!isAppLocale(locale)) {
@@ -33,21 +41,16 @@ export default async function LocaleHomePage({ params }: LocalePageProps) {
         locale={locale}
         brand={messages.header.brand}
         navItems={[
-          { label: messages.header.features, href: "#features" },
+          { label: messages.header.features, href: `/${locale}#features` },
           { label: messages.header.pricing, href: `/${locale}/pricing` },
-          { label: messages.header.showcase, href: "#showcase" },
-          { label: messages.header.docs, href: "#docs" },
+          { label: messages.header.showcase, href: `/${locale}#showcase` },
+          { label: messages.header.docs, href: `/${locale}#docs` },
         ]}
         loginLabel={messages.header.login}
         ctaLabel={messages.header.getStarted}
-        logoutLabel={messages.header.logout}
       />
-      <main className="flex-1" id="docs">
-        <HomeHero locale={locale} messages={messages.home.hero} />
-        <HomeSpinDemo messages={messages.home.spinDemo} />
-        <HomeHowItWorks messages={messages.home.howItWorks} />
-        <HomeWhyChoose messages={messages.home.whyChoose} />
-        <HomeBottomCta locale={locale} messages={messages.home.bottomCta} />
+      <main className="flex-1">
+        <PricingPageView locale={locale} messages={messages.pricing} />
       </main>
       <SiteFooter
         brand={messages.footer.brand}
@@ -62,4 +65,3 @@ export default async function LocaleHomePage({ params }: LocalePageProps) {
     </div>
   );
 }
-

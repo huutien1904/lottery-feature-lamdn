@@ -26,7 +26,12 @@ export class SuccessResponseInterceptor<T> implements NestInterceptor<
     next: CallHandler<T>,
   ): Observable<SuccessEnvelope<T>> {
     const req = context.switchToHttp().getRequest<Request>();
-    const path = req.url;
+    const path = req.path ?? '';
+
+    if (path === '/auth/google' || path === '/auth/google/callback') {
+      return next.handle() as unknown as Observable<SuccessEnvelope<T>>;
+    }
+
     const timestamp = new Date().toISOString();
 
     return next.handle().pipe(

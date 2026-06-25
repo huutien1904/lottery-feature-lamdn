@@ -1,12 +1,24 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PlatformRole } from '@prisma/client';
+import { AuthGuard } from '@nestjs/passport';
+import type { Request, Response } from 'express';
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiExcludeEndpoint,
   ApiOkResponse,
   ApiOperation,
-  ApiUnauthorizedResponse,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -20,29 +32,85 @@ import {
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
+import { GoogleOAuthGuard } from './guards/google-oauth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { AuthService } from './auth.service';
 import type { JwtPayload } from './interfaces/jwt-payload.interface';
+import type { GoogleOAuthUser } from './types/google-oauth-user';
 
 @ApiTags('Auth')
 @ApiBearerAuth('access-token')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
-  @ApiOperation({ summary: 'Register a new owner account and tenant trial' })
+  @ApiExcludeEndpoint()
+  @Get('google')
+  @UseGuards(GoogleOAuthGuard)
+  googleAuth(): void {
+    /* Redirect is issued by Passport inside the guard. */
+  }
+
+  @ApiExcludeEndpoint()
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  async googleCallback(
+    @Req() req: Request & { user: GoogleOAuthUser },
+    @Res() res: Response,
+  ): Promise<void> {
+    const webOrigin =
+      this.configService.get<string>('WEB_APP_ORIGIN') ??
+      'http://localhost:3000';
+    const stateRaw = req.query['state'];
+    const locale = stateRaw === 'vi' || stateRaw === 'en' ? stateRaw : 'vi';
+
+    const tokens = await this.authService.issueGoogleOAuthTokens(req.user);
+    const hash = new URLSearchParams({
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
+      is_new: req.user.isNew ? '1' : '0',
+    }).toString();
+    const target = `${webOrigin.replace(/\/$/, '')}/${locale}/auth/google-callback#${hash}`;
+    res.redirect(302, target);
+  }
+
+  @ApiOperation({
+    summary: 'Register a new owner account — sends verification email',
+  })
   @ApiBody({ type: RegisterDto })
-  @ApiOkResponse({ type: AuthTokenResponseDto })
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
+  @ApiOperation({
+    summary: 'Verify email address with token from verification email',
+  })
+  @ApiBody({ type: VerifyEmailDto })
+  @Post('verify-email')
+  verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.authService.verifyEmail(dto.token);
+  }
+
+  @ApiOperation({ summary: 'Resend email verification link' })
+  @ApiBody({ type: ResendVerificationDto })
+  @Post('resend-verification')
+  resendVerification(@Body() dto: ResendVerificationDto) {
+    return this.authService.resendVerification(dto.email, dto.locale ?? 'vi');
+  }
+
   @ApiOperation({ summary: 'Login with email and password' })
   @ApiBody({ type: LoginDto })
   @ApiOkResponse({ type: AuthTokenResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Invalid credentials.' })
+  @ApiUnauthorizedResponse({
+    description: 'Invalid credentials or email not verified.',
+  })
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);

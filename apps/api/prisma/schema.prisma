@@ -91,15 +91,20 @@ enum UploadPurpose {
 model User {
   id                    String       @id @default(cuid())
   email                 String       @unique
-  passwordHash          String
+  /** Null when the user only signs in with Google OAuth. */
+  passwordHash          String?
+  /** Google "sub" claim; links this account to Google sign-in. */
+  googleId              String?      @unique
   refreshTokenHash      String?
   refreshTokenExpiresAt DateTime?
   fullName              String
   avatarUrl             String?
   status                UserStatus   @default(ACTIVE)
   platformRole          PlatformRole @default(USER)
-  emailVerifiedAt       DateTime?
-  lastLoginAt           DateTime?
+  emailVerifiedAt            DateTime?
+  emailVerificationToken     String?   @unique
+  emailVerificationExpiresAt DateTime?
+  lastLoginAt                DateTime?
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
 

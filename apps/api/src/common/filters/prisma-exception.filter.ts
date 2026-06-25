@@ -4,18 +4,38 @@ import {
   ExceptionFilter,
   HttpStatus,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import {
+  PrismaClientKnownRequestError,
+  PrismaClientValidationError,
+} from '@prisma/client/runtime/client';
 import { Request, Response } from 'express';
 
-@Catch(Prisma.PrismaClientKnownRequestError)
+@Catch(PrismaClientKnownRequestError, PrismaClientValidationError)
 export class PrismaExceptionFilter implements ExceptionFilter {
   catch(
-    exception: Prisma.PrismaClientKnownRequestError,
+    exception: PrismaClientKnownRequestError | PrismaClientValidationError,
     host: ArgumentsHost,
   ): void {
     const ctx = host.switchToHttp();
     const request = ctx.getRequest<Request>();
     const response = ctx.getResponse<Response>();
+
+    if (exception instanceof PrismaClientValidationError) {
+      response.status(HttpStatus.BAD_REQUEST).json({
+        success: false,
+        error: {
+          code: 'PRISMA_VALIDATION_ERROR',
+          message:
+            'Database client rejected the query (often schema out of sync). Run `npx prisma migrate deploy` in apps/api.',
+          details: exception.message,
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          path: request.url,
+        },
+      });
+      return;
+    }
 
     const mapped = this.mapError(exception);
     response.status(mapped.status).json({
@@ -31,7 +51,7 @@ export class PrismaExceptionFilter implements ExceptionFilter {
     });
   }
 
-  private mapError(exception: Prisma.PrismaClientKnownRequestError): {
+  private mapError(exception: PrismaClientKnownRequestError): {
     status: number;
     code: string;
     message: string;
